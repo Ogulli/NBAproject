@@ -1,0 +1,25 @@
+# Rename season23_24 to salary in salary_table
+salary_table <- salary_table %>%
+  rename(salary = season23_24)
+
+salary_table <- salary_table %>%
+  left_join(name_mapping, by = c("Player" = "salary_name")) %>%
+  mutate(Player = ifelse(is.na(stats_name), Player, stats_name)) %>%
+  select(-stats_name)  # Remove the helper column after replacing names
+
+combined_data <- left_join(player_stats_aggregated, salary_table, by = "Player")
+
+head(combined_data)
+
+combined_data <- combined_data %>%
+  mutate(salary = ifelse(Player == "Nick Richards" & is.na(salary), 5000000, salary))
+
+combined_data <- combined_data %>%
+  mutate(salary = case_when(
+    Player == "Dariq Miller-Whitehead" ~ 2966040, 
+    Player == "KJ Martin" ~ 1930681,              
+    TRUE ~ salary
+  ))
+
+missing_salaries <- combined_data %>% filter(is.na(salary))
+print(missing_salaries$Player)
