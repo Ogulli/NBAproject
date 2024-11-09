@@ -29,3 +29,5 @@ final_data <- final_data %>%
 
 missing_check <- final_data %>% filter(is.na(Age) | is.na(Pos))
 print(missing_check)
+
+write.csv(final_data, "final_data.csv", row.names = FALSE)
