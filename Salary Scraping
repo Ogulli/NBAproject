@@ -13,7 +13,7 @@ page <- read_html(url)
 salary_table <- page %>%
   html_table(header = TRUE) %>%
   extract2(1) %>%
-  select(Player = `Player`, season23_24 = `2023/24`)
+  select(Player = `Player`, salary = `2023/24`)
 
 salary_table <- salary_table %>%
   mutate(Player = str_trim(stri_trans_general(Player, "Latin-ASCII"))) %>%
