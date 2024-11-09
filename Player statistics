@@ -1,0 +1,50 @@
+player_stats <- read.csv("/Users/jonlund/Documents/DataScience/NBA project/database_csv.csv")
+
+player_stats <- player_stats %>%
+  select(-GmSc, -Tm, -Opp, -Res, -Data)
+
+player_stats <- player_stats %>%
+  rename(`3P` = X3P, `3PA` = X3PA)
+
+player_stats_aggregated <- player_stats %>%
+  group_by(Player) %>%
+  summarise(
+    G = n(),            
+    MP = sum(MP, na.rm = TRUE),   
+    PTS = sum(PTS, na.rm = TRUE),    
+    AST = sum(AST, na.rm = TRUE),   
+    TRB = sum(TRB, na.rm = TRUE),   
+    TOV = sum(TOV, na.rm = TRUE),    
+    BLK = sum(BLK, na.rm = TRUE),    
+    STL = sum(STL, na.rm = TRUE),   
+    FG = sum(FG, na.rm = TRUE),   
+    FGA = sum(FGA, na.rm = TRUE),  
+    `3P` = sum(`3P`, na.rm = TRUE),   
+    `3PA` = sum(`3PA`, na.rm = TRUE), 
+    FT = sum(FT, na.rm = TRUE),       
+    FTA = sum(FTA, na.rm = TRUE)      
+  )
+
+player_stats_aggregated <- player_stats_aggregated %>%
+  mutate(
+    MPG = round(MP / G, 2),
+    PPG = round(PTS / G, 2),
+    APG = round(AST / G, 2),
+    RPG = round(TRB / G, 2),
+    TOPG = round(TOV / G, 2),
+    BPG = round(BLK / G, 2),
+    SPG = round(STL / G, 2),
+    FG_Percentage = round(FG / FGA, 2),       
+    `3P_Percentage` = round(`3P` / `3PA`, 2), 
+    FT_Percentage = round(FT / FTA, 2)         
+  )
+
+player_stats_aggregated <- player_stats_aggregated %>%
+  filter(Player != "Dmytro Skapintsev")
+
+player_stats_aggregated <- player_stats_aggregated %>%
+  mutate(Player = str_trim(stri_trans_general(Player, "Latin-ASCII"))) %>%
+  mutate(Player = gsub("\\.", "", Player)) %>%          
+  mutate(Player = gsub("\\s+(Jr|II|III)$", "", Player)) 
+
+head(player_stats_aggregated)
