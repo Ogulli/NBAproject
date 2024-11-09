@@ -1,0 +1,44 @@
+Histogram med lønnsfordeling
+final_data$Age <- as.numeric(final_data$Age)
+final_data$salary <- as.numeric(final_data$salary)
+
+
+salary_histogram <- ggplot(final_data, aes(x = salary)) +
+  geom_histogram(binwidth = 1000000, color = "white", fill = "#69b3a2", linewidth = 0.2) + 
+  labs(title = "Distribution of NBA Player Salaries", x = "Salary", y = "Number of Players") + 
+  scale_x_continuous(labels = scales::dollar_format(prefix = "$"), breaks = seq(0, max(final_data$salary), by = 1e7)) + 
+  theme(plot.title = element_text(hjust = 0.5))
+
+salary_histogram
+
+Alder vs. lønnsfordeling
+
+
+age_vs_salary <- ggplot(final_data, aes(x = Age, y = salary)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(formula = y ~ x, method = "loess", color = "#69b3a2") +
+  labs(title = "Age vs Salary") +
+  scale_y_continuous(labels = scales::dollar_format(prefix = "$"), limits = c(0, max(final_data$salary, na.rm = TRUE))) +
+  theme(plot.title = element_text(hjust = 0.5, size = 16))
+
+age_vs_salary <- ggMarginal(age_vs_salary, type = "boxplot", size = 3)
+
+Korrelasjonsplot
+
+install.packages("ggcorrplot")
+
+library(ggcorrplot)
+library(dplyr)
+
+correlation_data <- final_data %>%
+  select(salary, MPG, PPG, APG, RPG, TOPG, BPG, SPG, FG_Percentage, `3P_Percentage`, FT_Percentage, Age) %>%
+  mutate(across(everything(), as.numeric))  
+
+correlation_matrix <- cor(correlation_data, use = "complete.obs")
+
+ggcorrplot(correlation_matrix, 
+           method = "circle", 
+           type = "lower", 
+           lab = TRUE, 
+           title = "Correlation Plot: Salary vs. Aggregate Stats", 
+           colors = c("blue", "white", "red"))
