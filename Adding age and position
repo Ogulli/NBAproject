@@ -1,0 +1,31 @@
+add.info <- read.csv("~/Documents/DataScience/NBA project/nba-player-data-for.age.csv")
+
+add.info <- add.info %>%
+  select(Player, Age, Pos) %>%
+  distinct(Player, .keep_all = TRUE) %>%
+  mutate(Player = str_trim(stri_trans_general(Player, "Latin-ASCII")),
+         Player = gsub("\\.", "", Player),
+         Player = gsub("\\s+(Jr|II|III)$", "", Player),
+         Pos = substr(Pos, 1, 2))
+
+final_data <- combined_data %>%
+  left_join(add.info, by = "Player")
+
+missing_info <- data.frame(
+  Player = c("Aleksandar Vezenkov", "Dariq Miller-Whitehead", "Gregory Jackson", 
+             "Kenyon Martin", "Lonnie Walker", "Mohamed Bamba", 
+             "Ricky Council", "Xavier Tillman"),
+  Age = c(27, 20, 19, 22, 24, 25, 21, 25),  
+  Pos = c("PF", "SG", "PF", "PF", "SG", "C", "SG", "C")  
+)
+
+final_data <- final_data %>%
+  left_join(missing_info, by = "Player", suffix = c("", ".missing")) %>%
+  mutate(
+    Age = ifelse(is.na(Age), Age.missing, Age),
+    Pos = ifelse(is.na(Pos), Pos.missing, Pos)
+  ) %>%
+  select(-Age.missing, -Pos.missing)  
+
+missing_check <- final_data %>% filter(is.na(Age) | is.na(Pos))
+print(missing_check)
