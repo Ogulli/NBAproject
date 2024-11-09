@@ -1,0 +1,67 @@
+## 1. Salary scraping
+
+install.packages("rvest")
+install.packages("dplyr")
+install.packages("stringr")
+
+library(rvest)
+library(dplyr)
+library(magrittr)
+library(stringr) 
+
+
+# Define the URL
+url <- "https://hoopshype.com/salaries/players/2023-2024/"
+page <- read_html(url)
+
+
+# Extract the table and select only Player and primary salary columns
+salary_table <- page %>%
+  html_table(header = TRUE) %>%
+  extract2(1) %>%
+  select(Player = `Player`, season23_24 = `2023/24`)
+
+# Remove accents, periods, and trim whitespace in both datasets
+salary_table <- salary_table %>%
+  mutate(Player = str_trim(stri_trans_general(Player, "Latin-ASCII"))) %>%
+  mutate(Player = gsub("\\.", "", Player)) %>%           # Remove periods
+  mutate(Player = gsub("\\s+(Jr|II|III)$", "", Player))  # Remove Jr, II, III suffixes
+
+##Create a mapping table for specific name discrepancies
+name_mapping <- data.frame(
+  stats_name = c("Patty Mills", "Nic Claxton", "Aleksandar Vezenkov", "Brandon Boston", "Cam Whitmore", "Dariq Miller-Whitehead", "Dennis Schroder", "Devonte' Graham", "Gregory Jackson", "Herbert Jones", "Ish Smith", "Ish Wainright", "Javonte Smart", 
+"Jeenathan Williams", "Joshua Primo", "Kenyon Martin", "Mohamed Bamba", "Santi Aldama", "Scotty Pippen", "Svi Mykhailiuk"),
+  salary_name = c("Patrick Mills", "Nicolas Claxton", "Sasha Vezenkov", "BJ Boston", "Cameron Whitmore", "Dariq Whitehead", 
+  "Dennis Schroeder", "Devonte Graham", "GG Jackson", "Herb Jones", "Ishmael Smith", "Ishmail Wainright", "Ja'Vonte Smart",
+  "Nate Williams", "Josh Primo", "KJ Martin", "Mo Bamba", "Santiago Aldama", "Scottie Pippen", "Sviatoslav Mykhailiuk")
+)
+
+
+# Filter out any unwanted rows that may contain headers or empty values
+salary_table <- salary_table %>%
+  filter(Player != "" & Player != "Player")
+
+# Clean up the salary values by removing dollar signs and commas
+salary_table$season23_24 <- gsub(",", "", salary_table$season23_24)
+salary_table$season23_24 <- gsub("\\$", "", salary_table$season23_24)
+salary_table$season23_24 <- as.numeric(salary_table$season23_24)
+
+# Write to CSV
+write.csv(salary_table, "NBA_season23_24_salary.csv", row.names = FALSE)
+
+# Preview the data
+head(salary_table)
+
+
+  filter(Player != "" & Player != "Player")
+
+# Clean up the salary values by removing dollar signs and commas
+salary_table$season23_24 <- gsub(",", "", salary_table$season23_24)
+salary_table$season23_24 <- gsub("\\$", "", salary_table$season23_24)
+salary_table$season23_24 <- as.numeric(salary_table$season23_24)
+
+# Write to CSV
+write.csv(salary_table, "NBA_season23_24_salary.csv", row.names = FALSE)
+
+# Preview the data
+head(salary_table)
