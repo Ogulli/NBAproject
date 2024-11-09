@@ -1,0 +1,103 @@
+install.packages("caret")
+install.packages("glmnet")
+library(caret)
+library(glmnet)
+
+final_data[, c("PTS", "G", "AST", "TRB", "3P", "STL", "Age")] <- lapply(final_data[, c("PTS", "MP", "AST", "TRB", "3P", "STL", "Age")], as.numeric)
+
+str(final_data[, c("PTS", "G", "AST", "TRB", "3P", "STL", "Age")])
+
+set.seed(123)
+train_indices <- createDataPartition(final_data$salary, p = 0.8, list = FALSE)
+train_data <- final_data[train_indices, ]
+test_data <- final_data[-train_indices, ]
+
+train_features <- train_data[, c("PTS", "G", "AST", "TRB", "3P", "STL", "Age")]
+test_features <- test_data[, c("PTS", "G", "AST", "TRB", "3P", "STL", "Age")]
+
+train_features_scaled <- scale(train_features)
+
+test_features_scaled <- scale(test_features, center = attr(train_features_scaled, "scaled:center"), 
+                              scale = attr(train_features_scaled, "scaled:scale"))
+
+x_train <- as.matrix(train_features_scaled)
+y_train <- train_data$salary
+
+x_test <- as.matrix(test_features_scaled)
+y_test <- test_data$salary
+
+ridge_model <- cv.glmnet(x_train, y_train, alpha = 0)
+
+predictions_ridge <- predict(ridge_model, newx = x_test, s = "lambda.min")
+
+mse_ridge <- mean((y_test - predictions_ridge)^2)
+rsquared_ridge <- cor(y_test, predictions_ridge)^2
+
+print(paste("Mean Squared Error: ", mse_ridge))
+print(paste("R-squared: ", rsquared_ridge))
+
+coefficients_ridge <- coef(ridge_model, s = "lambda.min")
+
+print("Coefficients:")
+print
+
+coefficients <- coef(ridge_model, s = "lambda.min")[-1, ]
+feature_names <- colnames(x_train) 
+
+coefficients_df <- data.frame(Feature = feature_names, Coefficient = as.vector(coefficients))
+
+library(ggplot2)
+ggplot(coefficients_df, aes(x = reorder(Feature, Coefficient), y = Coefficient)) +
+  geom_bar(stat = "identity", fill = "blue", alpha = 0.7) +
+  coord_flip() +
+  labs(title = "Feature Importance from Ridge Regression",
+       x = "Feature",
+       y = "Coefficient")
+
+true_salaries <- test_data$salary
+
+plot(true_salaries, predictions_ridge, 
+     main = "Actual vs. Predicted Salaries", 
+     xlab = "Actual Salaries", 
+     ylab = "Predicted Salaries",
+     pch = 16, col = "blue")
+abline(0, 1, col = "red", lwd = 2)
+
+residuals <- true_salaries - predictions_ridge
+
+plot(predictions_ridge, residuals, 
+     main = "Residual Plot", 
+     xlab = "Predicted Salaries", 
+     ylab = "Residuals", 
+     pch = 16, col = "purple")
+abline(h = 0, col = "red", lty = 2) 
+
+hist(residuals, 
+     main = "Distribution of Residuals", 
+     xlab = "Residuals", 
+     col = "lightblue", 
+     border = "black", 
+     breaks = 20)
+
+qqnorm(residuals, main = "QQ Plot of Residuals")
+qqline(residuals, col = "red", lwd = 2)
+
+
+salary_comparison <- data.frame(
+  Player_Name = test_data$Player, 
+  Salary = true_salaries,
+  Predicted_Salary_Ridge = as.vector(predictions_ridge),
+  Difference = true_salaries - as.vector(predictions_ridge)
+)
+
+most_underpaid <- salary_comparison[order(salary_comparison$Difference), ] 
+most_overpaid <- salary_comparison[order(-salary_comparison$Difference), ]  
+
+most_underpaid_top10 <- head(most_underpaid, 10)
+most_overpaid_top10 <- head(most_overpaid, 10)
+
+cat("Most Underpaid Players according to the Ridge Regression model:\n")
+print(most_underpaid_top10)
+
+cat("\nMost Overpaid Players according to the Ridge Regression model:\n")
+print(most_overpaid_top10)
