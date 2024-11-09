@@ -1,0 +1,109 @@
+Final_data <- read_csv("NBA_final_data_salaries_2023_2024.csv")
+
+library(randomForest)
+library(caret) 
+library(ggplot2)
+library(dplyr)
+
+colSums(is.na(Final_data)) 
+
+Final_data <- Final_data %>%
+  select(-'FG_Percentage', -'3P_Percentage', -'FT_Percentage')
+colnames(Final_data)[c(12, 13)] <- c("Three_P", "Three_PA")
+
+set.seed(123)
+
+trainIndex <- createDataPartition(Final_data$salary, p = 0.8, list = FALSE)
+trainData <- Final_data[trainIndex, ]
+testData <- Final_data[-trainIndex, ]
+
+
+rf_model <- randomForest(salary ~ ., data = trainData, 
+                         mtry = 8, 
+                         ntree = 500,
+                         importance = TRUE)
+print(rf_model)
+
+predictions_reg <- predict(rf_model, testData)
+
+mse <- mean((predictions_reg - testData$salary)^2)
+cat("Mean Squared Error (MSE):", mse, "\n")
+
+importance_data <- as.data.frame(importance(rf_model))
+importance_data$Variable <- rownames(importance_data)
+
+importance_data <- importance_data %>%
+  select(Variable, IncMSE = `%IncMSE`) %>%
+  arrange(desc(IncMSE))
+
+ggplot(importance_data, aes(x = reorder(Variable, IncMSE), y = IncMSE)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  labs(title = "Variable Importance for Salary Predictions",
+       x = "Variables",
+       y = "Mean Decrease in MSE") +
+  theme_minimal() +
+  theme(axis.text.y = element_text(size = 10),
+        plot.title = element_text(hjust = 0.5))
+
+Random Forest - Prediction vs. Actual 
+
+install.packages("scales")
+library(scales)
+
+predictions_reg <- predict(rf_model, testData)
+
+actual_salaries <- testData$salary
+
+plot(actual_salaries, predictions_reg,
+     main = "Random Forest - Predicted vs. Actual Salary",
+     xlab = "Actual Salary",
+     ylab = "Predicted Salary",
+     pch = 19, col = "blue",
+     xaxt = "n", yaxt = "n") 
+
+axis(1, at = pretty(actual_salaries), labels = dollar(pretty(actual_salaries)))
+axis(2, at = pretty(predictions_reg), labels = dollar(pretty(predictions_reg)))
+
+abline(a = 0, b = 1, col = "red", lty = 2, lwd = 2)
+
+Variable importance
+feature_importance <- rf_model$importance[, "IncNodePurity"]
+sorted_importance <- feature_importance[order(-feature_importance)]
+
+barplot(sorted_importance,
+        names.arg = names(sorted_importance),
+        las = 2, col = "skyblue",
+        main = "Random Forest Feature Importance (IncNodePurity)",
+        ylab = "Increase in Node Purity")
+
+feature_importance <- rf_model$importance[, "%IncMSE"]
+sorted_importance <- feature_importance[order(-feature_importance)]
+
+par(mar = c(5, 8, 4, 2)) # Adjust margins for readability
+barplot(sorted_importance,
+        names.arg = names(sorted_importance),
+        las = 2, col = "skyblue",
+        main = "Feature Importance for Predicting Salary",
+        ylab = "% Increase in MSE")
+
+Random Forest - Underpaid and Overpaid
+
+testData$PredictedSalary <- predicted_salaries
+testData$SalaryDifference <- actual_salaries - predicted_salaries
+
+underpaid_players <- testData %>%
+  arrange(SalaryDifference) %>%
+  select(Player, salary, PredictedSalary, SalaryDifference) %>%
+  head(10)
+
+overpaid_players <- testData %>%
+  arrange(desc(SalaryDifference)) %>% 
+  select(Player, salary, PredictedSalary, SalaryDifference) %>%
+  head(10)
+
+print("Top 10 Most Underpaid Players:")
+print(underpaid_players)
+
+print("Top 10 Most Overpaid Players:")
+print(overpaid_players)
