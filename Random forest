@@ -1,3 +1,4 @@
+library(readr)
 Final_data <- read_csv("NBA_final_data_salaries_2023_2024.csv")
 
 library(randomForest)
