@@ -5,14 +5,14 @@ library(ggplot2)
 library(dplyr)
 
 
-Final_data <-  read_csv("NBA_final_data_salaries_2023_2024.csv")
-View(Final_data)
+final_data <-  read_csv("NBA_final_data_salaries_2023_2024.csv")
+View(final_data)
 
-colSums(is.na(Final_data)) # checking missing values
+colSums(is.na(final_data)) # checking missing values
 
 #Selecting features and renaming 3P
 
-Final_data <- Final_data %>%
+final_data <- final_data %>%
   select(Player, PTS, Age, MP, `3P`, STL, TRB, salary, AST) %>%
   rename(Three_P = `3P`) 
 
@@ -22,9 +22,9 @@ Final_data <- Final_data %>%
 
 set.seed(123) # Set a seed for reproducibility
 
-trainIndex <- createDataPartition(Final_data$salary, p = 0.8, list = FALSE) # 80% for training
-trainData <- Final_data[trainIndex, ]
-testData <- Final_data[-trainIndex, ]
+trainIndex <- createDataPartition(final_data$salary, p = 0.8, list = FALSE) # 80% for training
+trainData <- final_data[trainIndex, ]
+testData <- final_data[-trainIndex, ]
 
 
 
