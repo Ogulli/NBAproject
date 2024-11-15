@@ -1,110 +1,165 @@
 library(readr)
-Final_data <- read_csv("NBA_final_data_salaries_2023_2024.csv")
-
 library(randomForest)
 library(caret) 
 library(ggplot2)
 library(dplyr)
 
-colSums(is.na(Final_data)) 
+
+Final_data <-  read_csv("NBA_final_data_salaries_2023_2024.csv")
+View(Final_data)
+
+colSums(is.na(Final_data)) # checking missing values
+
+#Selecting features and renaming 3P
 
 Final_data <- Final_data %>%
-  select(-'FG_Percentage', -'3P_Percentage', -'FT_Percentage')
-colnames(Final_data)[c(12, 13)] <- c("Three_P", "Three_PA")
+  select(Player, PTS, Age, MP, `3P`, STL, TRB, salary, AST) %>%
+  rename(Three_P = `3P`) 
 
-set.seed(123)
+---------------------------------------------------------------------------------------------------------
 
-trainIndex <- createDataPartition(Final_data$salary, p = 0.8, list = FALSE)
+# Creating the random forest model
+
+set.seed(123) # Set a seed for reproducibility
+
+trainIndex <- createDataPartition(Final_data$salary, p = 0.8, list = FALSE) # 80% for training
 trainData <- Final_data[trainIndex, ]
 testData <- Final_data[-trainIndex, ]
 
 
-rf_model <- randomForest(salary ~ ., data = trainData, 
-                         mtry = 8, 
-                         ntree = 500,
+
+
+rf_model <- randomForest(salary ~ . - Player, data = trainData,
+                         ntree = 1000, mtry = 5, 
                          importance = TRUE)
+
+
+
+# View model summary
 print(rf_model)
+--------------------------------------------------------------------------------------------------------------------------
 
-predictions_reg <- predict(rf_model, testData)
+# Visulizing variable importance for salary (Mean Decrease in MSE)
 
-mse <- mean((predictions_reg - testData$salary)^2)
+predicted_salaries <- predict(rf_model, testData)
+
+mse <- mean((predicted_salaries - testData$salary)^2) # Calculate and display Mean Squared Error (MSE)
 cat("Mean Squared Error (MSE):", mse, "\n")
+
+
+  
+# Visulize variable importance for predicting salry
+
+# Extract variable importance from the model and convert to a data frame
 
 importance_data <- as.data.frame(importance(rf_model))
 importance_data$Variable <- rownames(importance_data)
 
+# Select and arrange by Mean Decrease in MSE (IncMSE) for regression
 importance_data <- importance_data %>%
   select(Variable, IncMSE = `%IncMSE`) %>%
   arrange(desc(IncMSE))
 
+# Plot variable importance using ggplot2
 ggplot(importance_data, aes(x = reorder(Variable, IncMSE), y = IncMSE)) +
-  geom_bar(stat = "identity", fill = "steelblue") +
+  geom_bar(stat = "identity", fill = "orange") +
   coord_flip() +
   labs(title = "Variable Importance for Salary Predictions",
        x = "Variables",
        y = "Mean Decrease in MSE") +
   theme_minimal() +
   theme(axis.text.y = element_text(size = 10),
-        plot.title = element_text(hjust = 0.5))
+        plot.title = element_text(hjust = 0.5))  
 
-Random Forest - Prediction vs. Actual 
+
+
+# Feature importance graph
+
+ Plot variable importance using varImpPlot
+varImpPlot(rf_model, main = "Variable Importance in Predicting Salary") #Simple and easy
+
+
+# Extract and sort feature importance by #IncNodePurity#
+
+feature_importance <- rf_model$importance[, "IncNodePurity"]
+sorted_importance <- feature_importance[order(-feature_importance)]
+
+# Create a bar plot
+barplot(sorted_importance,
+        names.arg = names(sorted_importance),
+        las = 3, col = "steelblue",
+        main = "Feature Importance (IncNodePurity)",
+        ylab = "Increase in Node Purity")
+
+---------------------------------------------------------------------------------------------------------------------------
+
+--------------------------# Visulizing prediction vs. Actual salary-----------------------------------------------------
 
 install.packages("scales")
 library(scales)
 
-predictions_reg <- predict(rf_model, testData)
 
+# Extract actual salaries from the test dataset
 actual_salaries <- testData$salary
 
-plot(actual_salaries, predictions_reg,
+
+# Plot actual vs. predicted salary
+plot(actual_salaries, predicted_salaries,
      main = "Random Forest - Predicted vs. Actual Salary",
      xlab = "Actual Salary",
      ylab = "Predicted Salary",
-     pch = 19, col = "blue",
-     xaxt = "n", yaxt = "n") 
+     pch = 10, col = "black")
+     
 
-axis(1, at = pretty(actual_salaries), labels = dollar(pretty(actual_salaries)))
-axis(2, at = pretty(predictions_reg), labels = dollar(pretty(predictions_reg)))
+# Add a 45-degree reference line
+abline(0, 1,  col = "red", lwd = 2)
 
-abline(a = 0, b = 1, col = "red", lty = 2, lwd = 2)
 
-Variable importance
-feature_importance <- rf_model$importance[, "IncNodePurity"]
-sorted_importance <- feature_importance[order(-feature_importance)]
+----------------------------------------Calculating overpaid and underpaid players-------------------------------------------------
 
-barplot(sorted_importance,
-        names.arg = names(sorted_importance),
-        las = 2, col = "skyblue",
-        main = "Random Forest Feature Importance (IncNodePurity)",
-        ylab = "Increase in Node Purity")
-
-feature_importance <- rf_model$importance[, "%IncMSE"]
-sorted_importance <- feature_importance[order(-feature_importance)]
-
-par(mar = c(5, 8, 4, 2)) # Adjust margins for readability
-barplot(sorted_importance,
-        names.arg = names(sorted_importance),
-        las = 2, col = "skyblue",
-        main = "Feature Importance for Predicting Salary",
-        ylab = "% Increase in MSE")
-
-Random Forest - Underpaid and Overpaid
-
+# Calculate the difference (Residual) between actual and predicted salary
 testData$PredictedSalary <- predicted_salaries
 testData$SalaryDifference <- actual_salaries - predicted_salaries
 
+# Sort players by SalaryDifference
+# For underpaid players: Negative SalaryDifference indicates underpayment
 underpaid_players <- testData %>%
-  arrange(SalaryDifference) %>%
+  arrange(SalaryDifference) %>% # Sort in ascending order to get most underpaid (largest negative)
   select(Player, salary, PredictedSalary, SalaryDifference) %>%
-  head(10)
+  head(10) # Top 10 most underpaid players
 
+# For overpaid players: Positive SalaryDifference indicates overpayment
 overpaid_players <- testData %>%
-  arrange(desc(SalaryDifference)) %>% 
+  arrange(desc(SalaryDifference)) %>% # Sort in descending order to get most overpaid (largest positive)
   select(Player, salary, PredictedSalary, SalaryDifference) %>%
-  head(10)
+  head(10) # Top 10 most overpaid players
 
+
+# Load formattable package
+install.packages("formattable")
+library(formattable)
+
+# Define a color format for Salary Difference
+color_format <- formatter("span",
+                          style = x ~ style(color = ifelse(x < 0, "red", "green")))
+
+# Display underpaid players table
 print("Top 10 Most Underpaid Players:")
-print(underpaid_players)
+formattable(underpaid_players, list(
+  SalaryDifference = color_format
+))
 
+# Display overpaid players table
 print("Top 10 Most Overpaid Players:")
-print(overpaid_players)
+formattable(overpaid_players, list(
+  SalaryDifference = color_format
+))
+
+
+
+
+
+
+
+
+
